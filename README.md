@@ -1,0 +1,2 @@
+latch-plugin-drupal7
+====================
