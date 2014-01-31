@@ -1,0 +1,68 @@
+<?php
+
+/*
+  Latch Drupal 7 plugin - Integrates Latch into the Drupal 7 authentication process.
+  Copyright (C) 2013 Eleven Paths
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+function latch_install() {
+    variable_set('latch_secret', '');
+    variable_set('latch_appid', '');
+}
+
+function latch_uninstall() {
+    variable_del('latch_secret');
+    variable_del('latch_appid');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function latch_schema() {
+    $schema['latch'] = array(
+        'description' => 'Table to store relatinships between drupal UserID and Latch Accounts',
+        'fields' => array(
+            'id' => array(
+                'type' => 'serial',
+                'not null' => TRUE,
+                'description' => '',
+            ),
+            'uid' => array(
+                'type' => 'int',
+                'not null' => TRUE,
+                'description' => 'Drupal User ID',
+            ),
+            'latch_account' => array(
+                'type' => 'text',
+                'not null' => TRUE,
+                'description' => 'User latch account',
+            ),
+            'two_factor' => array(
+                'type' => 'text',
+                'not null' => FALSE,
+                'description' => 'Temporary storage for the one-time password'
+            )
+        ),
+        'unique keys' => array(
+            'id' => array('id'),
+            'uid' => array('uid'),
+        ),
+        'primary key' => array('uid'),
+    );
+
+    return $schema;
+}

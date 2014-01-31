@@ -1,0 +1,154 @@
+<?php
+
+/*
+  Latch Drupal 7 plugin - Integrates Latch into the Drupal 7 authentication process.
+  Copyright (C) 2013 Eleven Paths
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+include('includes/latch.admin.inc');
+include('includes/latch.pairing.inc');
+include('includes/latch.twoFactor.inc');
+
+include('includes/latchSDK/Latch.php');
+include('includes/latchSDK/LatchResponse.php');
+
+module_load_include('pages.inc', 'user');
+
+function latch_init() {
+    
+}
+
+function latch_views_api() {
+    return array('api' => 2.0);
+}
+
+function latch_permission() {
+    return array(
+        'latch administration' => array(
+            'title' => t('Administer Latch module')
+        ),
+        'pairing enabled' => array(
+            'title' => t('Pairing the account with Latch')
+        )
+    );
+}
+
+function latch_menu() {
+    $items['admin/settings/latch'] = array(
+        'title' => 'Latch Config',
+        'description' => 'Configure Latch module.',
+        'page callback' => 'latch_admin',
+        'page arguments' => array('settings'),
+        'access callback' => 'user_access',
+        'access arguments' => array('latch administration'),
+    );
+    $items['admin/settings/latch/settings'] = array(
+        'title' => 'Settings',
+        'page arguments' => array('settings'),
+        'type' => MENU_DEFAULT_LOCAL_TASK,
+    );
+    $items['user/%/latch'] = array(
+        'title' => 'Latch Account',
+        'page callback' => 'latch_pairing',
+        'page arguments' => array(1),
+        'access callback' => 'user_access',
+        'access arguments' => array('pairing enabled'),
+        'type' => MENU_LOCAL_TASK,
+        'weight' => 10,
+    );
+
+    return $items;
+}
+
+function latch_user_login(&$edit, $account) {
+    userProperlyLogged($edit, $account);
+}
+
+function userProperlyLogged($edit, $account) {
+    if (isset($_POST['twoFactor'])) {
+        checkSecondFactor($account);
+    } else {
+        $latch_accountId = getLatchId($account->uid);
+        if (!empty($latch_accountId)) {
+            $statusResponse = getLatchStatus($latch_accountId);
+            processStatusResponse($statusResponse, $account);
+        }
+    }
+}
+
+function checkSecondFactor($account) {
+    $storedToken = retrieveSecondFactor($account->uid);
+    removeSecondFactor($account->uid);
+    if ($_POST['twoFactor'] != $storedToken) {
+        user_logout();
+    }
+}
+
+function getLatchId($uid) {
+    $query = db_query("SELECT * FROM {latch} WHERE uid=:uid", array(':uid' => $uid));
+    $result = $query->fetchObject();
+    return ($result) ? $result->latch_account : NULL;
+}
+
+function getLatchStatus($latchId) {
+    $appId = variable_get('latch_appid', '');
+    $appSecret = variable_get('latch_secret', '');
+    if (!empty($appId) && !empty($appSecret)) {
+        $api = new Latch($appId, $appSecret);
+        return $api->status($latchId);
+    } else {
+        return new LatchResponse("");
+    }
+}
+
+function processStatusResponse($statusResponse, $account) {
+    $appId = variable_get('latch_appid', '');
+    $responseData = $statusResponse->getData();
+    $responseError = $statusResponse->getError();
+
+    // If something goes wrong, disable Latch temporary or permanently to prevent blocking the user
+    if (empty($statusResponse) || (empty($responseData) && empty($responseError))) {
+        // Login success to prevent DoS to the user					
+    } else {
+        if (!empty($responseError) && $responseError->getCode() == 201) {
+            // If the account is externally unpaired, apply the changes in WP database						
+            db_delete('latch')->condition('uid', $account->uid);
+        }
+        if (!empty($responseData) && isStatusOn($responseData, $appId)) {
+            // LOGIN OK + STATUS = on
+            if (isSecondFactorEnabled($responseData, $appId)) {
+                $otp = $responseData->{"operations"}->{$appId}->{"two_factor"}->{"token"};
+                storeSecondFactor($otp, $account->uid);
+                session_destroy(); // The user cannot be authenticated yet
+                echo buildHTML(drupal_get_form('latchTwoFactorForm'));
+                die();
+            }
+        } else {
+            // LOGIN OK + STATUS = off
+            // TODO: Show same error of invalid credentials
+            user_logout();
+        }
+    }
+}
+
+function isStatusOn($responseData, $appId) {
+    return $responseData->{"operations"}->{$appId}->{"status"} === "on";
+}
+
+function isSecondFactorEnabled($responseData, $appId) {
+    return property_exists($responseData->{"operations"}->{$appId}, "two_factor");
+}
