@@ -38,7 +38,7 @@
 
 
 ##USE OF LATCH MODULE FOR THE USERS
-**Latch does not affect in any case or in any way the usual operations with an account. It just allows or denies actions over it, acting as an independent extra layer of security that, once removed or without effect, will have no effect over the accounts, that will remain with its original state.**
+**Latch does not affect in any case or in any way the usual operations with an account. It just allows or denies actions over it, acting as an independent extra layer of security that, once removed or without effect, will have no effect over the accounts, which will remain with their original state.**
 
 The user needs the Latch application installed on the phone, and follow these steps:
 
@@ -46,6 +46,6 @@ The user needs the Latch application installed on the phone, and follow these st
 
 * **Step 2:** From the Latch app on the phone, the user has to generate the token, pressing on **“generate pairing code to add service"** at the bottom of the application.
 
-* **Step 3:** The user has to type the characters generated on the phone into the text box displayed on the web page. Click on **"pair account"** button.
+* **Step 3:** The user has to type the characters generated on the phone into the text box displayed on the web page. Click on **"Pair Account"** button.
 
 * **Step 4:** Now the user may lock and unlock the account, preventing any unauthorized access.
