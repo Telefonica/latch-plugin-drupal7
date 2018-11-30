@@ -20,7 +20,7 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-require_once("Error.php");
+require_once("LatchError.php");
 
 /**
  * This class models a response from any of the endpoints in the Latch API.
@@ -47,7 +47,7 @@ class LatchResponse {
 				$this->data = $json->{"data"};
 			}
 			if (array_key_exists("error", $json)) {
-				$this->error = new Error($json->{"error"});
+				$this->error = new LatchError($json->{"error"});
 			} 
 		}
 	}
@@ -81,7 +81,7 @@ class LatchResponse {
 	 * @param $error an error to include in the API response
 	 */
 	public function setError($error) {
-		$this->error = new Error($error);
+		$this->error = new LatchError($error);
 	}
 
 	/**
